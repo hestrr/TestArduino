@@ -10,6 +10,11 @@ void setup() {
 }
 
 void loop() {
-  float i = 1234;
-  tm1637.display(i);
+  //float i = 1234;
+ // tm1637.display(i);
+
+  for (float i = 0; i <= 9999; i++) {
+    tm1637.display(i);
+    delay(500);
+  }
 }

@@ -16,7 +16,7 @@ void setup() {
 void loop() {
 
 
- int8_t TimeDisp[4]; 
+ //int8_t TimeDisp[4]; 
 
   for (float i = 0; i <= 9999; i++) {
     // tm1637.display(i);
@@ -31,37 +31,20 @@ void loop() {
     int razr3 = i - razr0 * 1000 - razr1 * 100 - razr2 * 10;
     //TimeDisp[3] = razr4;
 
-    Serial.println("----");
-    Serial.print(razr0);
-    Serial.print(razr1);
-    Serial.print(razr2);
-    Serial.print(razr3);
-    Serial.println();
-   // TimeDisp[2] = i / 10;
-    //TimeDisp[3] = i % 10;  
-
     //tm1637.display(TimeDisp);
-    if (razr0 != 0) {
+    if (razr0 != 0)
       tm1637.display(0,razr0);
-      Serial.print("0-");
-      Serial.println(razr0);
-    }
-    if (!(razr0 == 0 && razr1 == 0)) {
+      /*Serial.print("0-");
+      Serial.println(razr0);*/
+
+    if (!(razr0 == 0 && razr1 == 0))
       tm1637.display(1,razr1);
-      Serial.print("1-");
-      Serial.println(razr1);
-    }
 
-    if (!(razr0 == 0 && razr1 == 0 && razr2 == 0)) {
+    if (!(razr0 == 0 && razr1 == 0 && razr2 == 0))
       tm1637.display(2,razr2);
-      Serial.print("2-");
-      Serial.println(razr2);
-    }
 
-    tm1637.display(3,razr3); 
-    Serial.print("3-");
-    Serial.println(razr3);
+    tm1637.display(3,razr3);
 
-    delay(2000);
+    delay(500);
   } 
 }

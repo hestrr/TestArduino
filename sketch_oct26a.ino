@@ -1,14 +1,15 @@
 // Test git
 // line 2
+#include "TM1637.h"
+
+TM1637 tm1637(12, 14);              // CLK, DIO (D6, D5)
 
 void setup() {
-  // initialize digital pin LED_BUILTIN as an output.
-  pinMode(LED_BUILTIN, OUTPUT);
+  tm1637.init();                      ///tm1637
+  tm1637.set(7);
 }
 
 void loop() {
-  digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
-  delay(1000);                       // wait for a second
-  digitalWrite(LED_BUILTIN, LOW);    // turn the LED off by making the voltage LOW
-  delay(1000);                       // wait for a second
+  float i = 1234;
+  tm1637.display(i);
 }

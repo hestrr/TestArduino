@@ -1,5 +1,3 @@
-// Test git
-// line 2
 #include "TM1637.h"
 
 TM1637 tm1637(12, 14);              // CLK, DIO (D6, D5)

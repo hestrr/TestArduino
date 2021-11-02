@@ -7,7 +7,8 @@
 
 RtcDS3231<TwoWire> rtc(Wire);
 
-Ticker flipper;
+Ticker flipper, getTime;
+
 TM1637 tm1637(12, 14); // CLK, DIO (D6, D5)
 
 char ssid[] = "SnowFish"; //  your network SSID (name)
@@ -15,7 +16,6 @@ char pass[] = "38051686"; // your network password
 
 #define GMT 4
 
-byte hour, minute, second;
 boolean point;
 
 unsigned int localPort = 2390; // local port to listen for UDP packets
@@ -30,6 +30,8 @@ byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing packe
 // A UDP instance to let us send and receive packets over UDP
 WiFiUDP udp;
 
+#define RTC_LEAP_YEAR(year) ((((year) % 4 == 0) && ((year) % 100 != 0)) || ((year) % 400 == 0))
+
 void setup()
 {
   rtc.Begin();
@@ -42,6 +44,7 @@ void setup()
   Serial.println("Start");
 
   flipper.attach(1, flip);
+  getTime.attach(60, GetTimeFromInternet);
 
   Serial.print("Connecting to ");
   Serial.println(ssid);
@@ -62,65 +65,10 @@ void setup()
   udp.begin(localPort);
   Serial.print("Local port: ");
   Serial.println(udp.localPort());
-
-  // GetTimeFromInternet();
 }
 
 void loop()
 {
-  /*if (second == 30)
-  {                          // если насчитали 30 сек
-    flipper.detach();        // выключаем прерывание
-    delay(1500);             // ждем, чтобы повторно не запустить
-    GetTimeFromInternet();   // синхронизируем время
-    flipper.attach(1, flip); // запускаем прерывание
-  }*/
-
-  RtcDateTime now = rtc.GetDateTime();
-
-  hour = now.Hour();
-  minute = now.Minute();
-
-  int8_t TimeDisp[4];  // отправляем всё на экран
-  tm1637.point(point); // управление :, мигаем если запущено прерывание
-
-  TimeDisp[0] = hour / 10;
-  TimeDisp[1] = hour % 10;
-  TimeDisp[2] = minute / 10;
-  TimeDisp[3] = minute % 10;
-  tm1637.display(TimeDisp);
-  delay(500);
-  /* //int8_t TimeDisp[4];
-
-  for (float i = 0; i <= 9999; i++)
-  {
-    // tm1637.display(i);
-    tm1637.clearDisplay();
-
-    int razr0 = i / 1000;
-    //TimeDisp[0] = razr1;
-    int razr1 = (i - razr0 * 1000) / 100;
-    //TimeDisp[1] = razr2;
-    int razr2 = (i - razr0 * 1000 - razr1 * 100) / 10;
-    //TimeDisp[2] = razr3;
-    int razr3 = i - razr0 * 1000 - razr1 * 100 - razr2 * 10;
-    //TimeDisp[3] = razr4;
-
-    //tm1637.display(TimeDisp);
-    if (razr0 != 0)
-      tm1637.display(0, razr0);
-    / *Serial.print("0-");
-      Serial.println(razr0);* /
-
-    if (!(razr0 == 0 && razr1 == 0))
-      tm1637.display(1, razr1);
-
-    if (!(razr0 == 0 && razr1 == 0 && razr2 == 0))
-      tm1637.display(2, razr2);
-
-    tm1637.display(3, razr3);
-
-    delay(500); */
 }
 
 void GetTimeFromInternet()
@@ -139,8 +87,8 @@ void GetTimeFromInternet()
   }
   else
   {
-    Serial.print("packet received, length=");
-    Serial.println(cb);
+    //Serial.print("packet received, length=");
+    //Serial.println(cb);
     // We've received a packet, read the data from it
     udp.read(packetBuffer, NTP_PACKET_SIZE); // read the packet into the buffer
 
@@ -152,8 +100,8 @@ void GetTimeFromInternet()
     // combine the four bytes (two words) into a long integer
     // this is NTP time (seconds since Jan 1 1900):
     unsigned long secsSince1900 = highWord << 16 | lowWord;
-    Serial.print("Seconds since Jan 1 1900 = ");
-    Serial.println(secsSince1900);
+    //Serial.print("Seconds since Jan 1 1900 = ");
+    //Serial.println(secsSince1900);
 
     // now convert NTP time into everyday time:
     Serial.print("Unix time = ");
@@ -162,14 +110,83 @@ void GetTimeFromInternet()
     // subtract seventy years:
     unsigned long epoch = secsSince1900 - seventyYears;
     // print Unix time:
-    Serial.println(epoch);
 
     /// корректировка часового пояса и синхронизация
-    epoch = epoch + GMT * 3600;
+    unsigned long unix = epoch + GMT * 3600;
+    Serial.println(unix);
 
-    hour = (epoch % 86400L) / 3600;
-    minute = (epoch % 3600) / 60;
-    second = epoch % 60;
+    byte ss = unix % 60; /* Get seconds from unix */
+    unix /= 60;          /* Go to minutes */
+    byte mm = unix % 60; /* Get minutes */
+    unix /= 60;          /* Go to hours */
+    byte hh = unix % 24; /* Get hours */
+    unix /= 24;          /* Go to days */
+    Serial.print(hh);
+    Serial.print(":");
+    Serial.print(mm);
+    Serial.print(":");
+    Serial.print(ss);
+    Serial.print("   ");
+    // data->WeekDay = (unix + 3) % 7 + 1; /* Get week day, monday is first day */
+
+    byte WeekDay = (unix + 3) % 7 + 1; /* Get week day, monday is first day */
+
+    byte year = 1970; /* Process year */
+    while (1)
+    {
+      if (RTC_LEAP_YEAR(year))
+      {
+        if (unix >= 366)
+          unix -= 366;
+        else
+          break;
+      }
+      else if (unix >= 365)
+        unix -= 365;
+      else
+        break;
+      year++;
+    }
+    /* Get year in xx format */
+    year = (uint8_t)(year - 2000);
+    Serial.print(year);
+    Serial.print("-");
+
+    /* Get month */
+    static uint8_t RTC_Months[2][12] = {
+        {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}, /* Not leap year */
+        {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}  /* Leap year */
+    };
+
+    byte month;
+    for (month = 0; month < 12; month++)
+    {
+      if (RTC_LEAP_YEAR(year))
+      {
+        if (unix >= (uint32_t)RTC_Months[1][month])
+          unix -= RTC_Months[1][month];
+        else
+          break;
+      }
+      else if (unix >= (uint32_t)RTC_Months[0][month])
+        unix -= RTC_Months[0][month];
+      else
+        break;
+    }
+
+    Serial.print(month + 1);
+    Serial.print("-");
+    Serial.print(unix);
+    Serial.println("");
+
+    RtcDateTime dateTime(year, month + 1, unix, hh, mm, ss);
+    rtc.SetDateTime(dateTime);
+
+    /*
+
+    byte hour = (epoch % 86400L) / 3600;
+    byte minute = (epoch % 3600) / 60;
+    byte second = epoch % 60;
 
     // print the hour, minute and second:
     Serial.print("The UTC time is ");      // UTC is the time at Greenwich Meridian (GMT)
@@ -187,9 +204,8 @@ void GetTimeFromInternet()
       // In the first 10 seconds of each minute, we'll want a leading '0'
       Serial.print('0');
     }
-    Serial.println(epoch % 60); // print the second
+    Serial.println(epoch % 60); // print the second*/
   }
-  // wait ten seconds before asking for the time again
 }
 
 // send an NTP request to the time server at the given address
@@ -220,6 +236,20 @@ unsigned long sendNTPpacket(IPAddress &address)
 void flip()
 {
   point = !point;
+  tm1637.point(point); // управление :, мигаем если запущено прерывание
+
+  RtcDateTime now = rtc.GetDateTime();
+  byte hour = now.Hour();
+  byte minute = now.Minute();
+
+  int8_t TimeDisp[4]; // отправляем всё на экран
+  TimeDisp[0] = hour / 10;
+  TimeDisp[1] = hour % 10;
+  TimeDisp[2] = minute / 10;
+  TimeDisp[3] = minute % 10;
+
+  tm1637.display(TimeDisp);
+
   /*second++;
   if (second > 59)
   {

@@ -8,7 +8,8 @@
             "intelliSenseMode": "clang-x64",
             "includePath": [
                 "C:\\Users\\Polina\\AppData\\Local\\Arduino15\\packages\\esp8266\\tools\\**",
-                "C:\\Users\\Polina\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\**"
+                "C:\\Users\\Polina\\AppData\\Local\\Arduino15\\packages\\esp8266\\hardware\\esp8266\\2.7.4\\**",
+                "C:\\arduino\\libraries\\**"
             ],
             "forcedInclude": [],
             "cStandard": "",

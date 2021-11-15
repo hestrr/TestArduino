@@ -1,22 +1,35 @@
-#include "TM1637.h"
-#include <ESP8266WiFi.h>
+#include <stdarg.h>
+#define SERIAL_PRINTF_MAX_BUFF 256
+void serialPrintf(const char *fmt, ...);
+
+#include <SPI.h>
+#include <Adafruit_GFX.h>
+#include <Max72xxPanel.h>
 #include <Ticker.h>
-#include <WiFiUdp.h>
+
 #include <Wire.h>      //I2C library
 #include <RtcDS3231.h> //RTC library
 
 RtcDS3231<TwoWire> rtc(Wire);
 
+int pinCS = D4;
+int numberOfHorizontalDisplays = 4;
+int numberOfVerticalDisplays = 1;
+
 Ticker flipper, getTime;
 
-TM1637 tm1637(12, 14); // CLK, DIO (D6, D5)
+// LED Matrix Pin -> ESP8266 Pin
+// Vcc            -> 3v  (3V on NodeMCU 3V3 on WEMOS)
+// Gnd            -> Gnd (G on NodeMCU)
+// DIN            -> D7  (Same Pin for WEMOS)
+// CS             -> D4  (Same Pin for WEMOS)
+// CLK            -> D5  (Same Pin for WEMOS)
+
+Max72xxPanel matrix = Max72xxPanel(pinCS, numberOfHorizontalDisplays, numberOfVerticalDisplays);
 
 char ssid[] = "SnowFish"; //  your network SSID (name)
 char pass[] = "38051686"; // your network password
-
-#define GMT 4
-
-boolean point;
+#include <ESP8266WiFi.h>
 
 unsigned int localPort = 2390; // local port to listen for UDP packets
 
@@ -27,24 +40,38 @@ const int NTP_PACKET_SIZE = 48; // NTP time stamp is in the first 48 bytes of th
 
 byte packetBuffer[NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing packets
 
+#include <WiFiUdp.h>
 // A UDP instance to let us send and receive packets over UDP
 WiFiUDP udp;
 
 #define RTC_LEAP_YEAR(year) ((((year) % 4 == 0) && ((year) % 100 != 0)) || ((year) % 400 == 0))
 
+#define GMT 4
+boolean point;
+
 void setup()
 {
-  rtc.Begin();
-
-  tm1637.init(); ///tm1637
-  tm1637.set(7);
-  //tm1637.clearDisplay();
-  //tm1637.display(2,2);
   Serial.begin(115200);
+  delay(1000);
+  Serial.println();
   Serial.println("Start");
 
-  flipper.attach(1, flip);
-  getTime.attach(60, GetTimeFromInternet);
+  rtc.Begin();
+
+  matrix.setIntensity(15);  // Use a value between 0 and 15 for brightness
+  matrix.setRotation(0, 1); // The first display is position upside down
+  matrix.setRotation(1, 1); // The first display is position upside down
+  matrix.setRotation(2, 1); // The first display is position upside down
+  matrix.setRotation(3, 1); // The first display is position upside down
+  matrix.fillScreen(LOW);
+  matrix.write();
+
+  matrix.drawChar(2, 0, '1', HIGH, LOW, 1);  // H
+  matrix.drawChar(9, 0, '2', HIGH, LOW, 1);  // HH
+  matrix.drawChar(14, 0, ':', HIGH, LOW, 1); // HH:
+  matrix.drawChar(19, 0, '3', HIGH, LOW, 1); // HH:M
+  matrix.drawChar(26, 0, '4', HIGH, LOW, 1); // HH:MM
+  matrix.write();                            // Send bitmap to display
 
   Serial.print("Connecting to ");
   Serial.println(ssid);
@@ -65,10 +92,15 @@ void setup()
   udp.begin(localPort);
   Serial.print("Local port: ");
   Serial.println(udp.localPort());
+
+  //flipper.attach(1, flip);
+  //getTime.attach(60, GetTimeFromInternet);
 }
 
 void loop()
 {
+  flip();
+  delay(500);
 }
 
 void GetTimeFromInternet()
@@ -236,19 +268,23 @@ unsigned long sendNTPpacket(IPAddress &address)
 void flip()
 {
   point = !point;
-  tm1637.point(point); // управление :, мигаем если запущено прерывание
 
   RtcDateTime now = rtc.GetDateTime();
   byte hour = now.Hour();
   byte minute = now.Minute();
 
-  int8_t TimeDisp[4]; // отправляем всё на экран
-  TimeDisp[0] = hour / 10;
-  TimeDisp[1] = hour % 10;
-  TimeDisp[2] = minute / 10;
-  TimeDisp[3] = minute % 10;
+  /*int8_t TimeDisp[4]; // отправляем всё на экран
+  /*char hr_1 = char(hour / 10);
+  char hr_2 = str(hour % 10);
+  str min_3 = str(minute / 10);
+  str min_4 = str(minute % 10);*/
 
-  tm1637.display(TimeDisp);
+  matrix.drawChar(2, 0, String(hour / 10)[0], HIGH, LOW, 1);    // H
+  matrix.drawChar(9, 0, String(hour % 10)[0], HIGH, LOW, 1);    // HH
+  matrix.drawChar(14, 0, point ? ':' : ' ', HIGH, LOW, 1);      // HH:
+  matrix.drawChar(19, 0, String(minute / 10)[0], HIGH, LOW, 1); // HH:M
+  matrix.drawChar(26, 0, String(minute % 10)[0], HIGH, LOW, 1); // HH:MM
+  matrix.write();                                               // Send bitmap to display
 
   /*second++;
   if (second > 59)

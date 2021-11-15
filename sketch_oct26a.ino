@@ -49,6 +49,8 @@ WiFiUDP udp;
 #define GMT 4
 boolean point;
 
+volatile boolean needRedraw = false;
+
 void setup()
 {
   Serial.begin(115200);
@@ -93,14 +95,35 @@ void setup()
   Serial.print("Local port: ");
   Serial.println(udp.localPort());
 
-  //flipper.attach(1, flip);
+  flipper.attach(1, flip);
   //getTime.attach(60, GetTimeFromInternet);
 }
 
 void loop()
 {
-  flip();
-  delay(500);
+  /*flip();
+  delay(500);*/
+
+  if (needRedraw)
+  {
+    RtcDateTime now = rtc.GetDateTime();
+    byte hour = now.Hour();
+    byte minute = now.Minute();
+
+    /*int8_t TimeDisp[4]; // отправляем всё на экран
+  /*char hr_1 = char(hour / 10);
+  char hr_2 = str(hour % 10);
+  str min_3 = str(minute / 10);
+  str min_4 = str(minute % 10);*/
+
+    matrix.drawChar(2, 0, String(hour / 10)[0], HIGH, LOW, 1);    // H
+    matrix.drawChar(9, 0, String(hour % 10)[0], HIGH, LOW, 1);    // HH
+    matrix.drawChar(14, 0, point ? ':' : ' ', HIGH, LOW, 1);      // HH:
+    matrix.drawChar(19, 0, String(minute / 10)[0], HIGH, LOW, 1); // HH:M
+    matrix.drawChar(26, 0, String(minute % 10)[0], HIGH, LOW, 1); // HH:MM
+    matrix.write();                                               // Send bitmap to display
+    needRedraw = false;
+  }
 }
 
 void GetTimeFromInternet()
@@ -269,22 +292,7 @@ void flip()
 {
   point = !point;
 
-  RtcDateTime now = rtc.GetDateTime();
-  byte hour = now.Hour();
-  byte minute = now.Minute();
-
-  /*int8_t TimeDisp[4]; // отправляем всё на экран
-  /*char hr_1 = char(hour / 10);
-  char hr_2 = str(hour % 10);
-  str min_3 = str(minute / 10);
-  str min_4 = str(minute % 10);*/
-
-  matrix.drawChar(2, 0, String(hour / 10)[0], HIGH, LOW, 1);    // H
-  matrix.drawChar(9, 0, String(hour % 10)[0], HIGH, LOW, 1);    // HH
-  matrix.drawChar(14, 0, point ? ':' : ' ', HIGH, LOW, 1);      // HH:
-  matrix.drawChar(19, 0, String(minute / 10)[0], HIGH, LOW, 1); // HH:M
-  matrix.drawChar(26, 0, String(minute % 10)[0], HIGH, LOW, 1); // HH:MM
-  matrix.write();                                               // Send bitmap to display
+  needRedraw = true;
 
   /*second++;
   if (second > 59)
